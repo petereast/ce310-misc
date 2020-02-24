@@ -17,9 +17,17 @@ class CodeGenerator:
                 return value()
             return __internal
 
+        def checked_divide(a, b):
+            val_b = b()
+            val_a = a()
+
+            return val_a / val_b if val_b > 0 else 0
+
         # Define the "language" - the key of the dict is not used at the moment,
         # it's there to eventually support parsing the language? Maybe?  I'll
         # probably end up taking it out though
+        # If I was writing this class for a production system, I these values
+        # would be passed into the constructor
 
         self.terminal_nodes = dict([
             # Able to use thes 0-arity functions to fetch variables at runtime
@@ -33,8 +41,9 @@ class CodeGenerator:
             ("+", lambda a, b: a() + b()),
             ("-", lambda a, b: a() - b()),
             ("*", lambda a, b: a() * b()),
-            ("/", lambda a, b: 1),  # TODO: implement checked divide
+            ("/", checked_divide),  # TODO: implement checked divide
             ("if", lambda cond, a, b: a() if cond else b()),
+            ("id", lambda a: a()),
             # ("pront", pront("debug!"))
         ])
 
@@ -82,11 +91,12 @@ class CodeGenerator:
 
 
 class CodegenUnitTests(unittest.TestCase):
-    def test_is_ok(self):
+    def test_smoke_tests(self):
 
         cg = CodeGenerator()
 
-        # Shouldn't fail once
+        # it should be able to run a few thousand random evaluations without
+        # any runtime issues
         for i in range(10000):
             cg.test()
 
@@ -96,8 +106,8 @@ class CodegenUnitTests(unittest.TestCase):
         cg = CodeGenerator()
         expr1 = [
             lambda a, b: a() + b(),
-                [lambda: 2],
-                [lambda: 3]
+            lambda: 2,
+            lambda: 3
         ]
         self.assertEqual(5, cg.execute_expression(expr1)())
 
@@ -116,7 +126,6 @@ class CodegenUnitTests(unittest.TestCase):
             ]
         ]
         self.assertEqual(27, cg.execute_expression(expr3)())
-
 
     def test_failing_if_conditions_are_not_executed(self):
         """Checks the lazy evaluation of impure functions passed to conditional functions"""
