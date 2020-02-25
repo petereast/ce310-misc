@@ -1,16 +1,56 @@
-import unittest
+import unittest  # Run unit tests with $ python3 -m unittest interpreter
 import random
 
 
 def list_singleton(maybe_list):
+    """
+    To make everything into a list, without making the lists too deep.
+    """
     if isinstance(maybe_list, list):
         return maybe_list
     else:
         return [maybe_list]
 
 
+class Interpreter:
+    """
+        Recursively interprets a tree of instructions (comprised of functions)
+        This is all going to seem a little strange if you don't understand lazy evaluation.
+
+    """
+    @staticmethod
+    def execute_expression(expr):
+        # Instructions are in a tree, should be able to recursively handle it
+        [action_fn, *args] = list_singleton(expr)
+
+        if len(args) == 0:
+            return action_fn
+        elif len(args) > 0:
+            # Evaluate the arguments
+            argvals = [Interpreter.execute_expression(arg) for arg in args]
+
+            # Return a lazy computed value
+            return lambda: action_fn(*argvals)
+        return lambda: 0
+
+
 class CodeGenerator:
     def __init__(self):
+        self.define_language()
+
+    def define_language(self):
+        """
+        Define the set of available isntructions using lambda functions.
+
+        Please note that *everything is a function*, even constant values. This comes
+        with two main advantages:
+            1. The interpreter becomes much more simple as it is only dealing with one 
+               type of data
+            2. It allows us to use "lazy evaluation", which means that the macros (as 
+               described in the GE class on the 24th feb) are nothing special, because
+               each functional node is forced to decide if it wants to evaluate each 
+               subtree or not.
+        """
         def pront(string):
             def __internal(value):
                 print(string, value())
@@ -23,25 +63,17 @@ class CodeGenerator:
 
             return val_a / val_b if val_b > 0 else 0
 
-        # Define the "language" - the key of the dict is not used at the moment,
-        # it's there to eventually support parsing the language? Maybe?  I'll
-        # probably end up taking it out though
-        # If I was writing this class for a production system, I these values
-        # would be passed into the constructor
-
         self.terminal_nodes = dict([
-            # Able to use thes 0-arity functions to fetch variables at runtime
             ("const1", lambda: 1),
             ("const2", lambda: 2),
             ("const3", lambda: 3)
         ])
 
         self.function_nodes = dict([
-            # All values are functions - lazy execution
             ("+", lambda a, b: a() + b()),
             ("-", lambda a, b: a() - b()),
             ("*", lambda a, b: a() * b()),
-            ("/", checked_divide),  # TODO: implement checked divide
+            ("/", checked_divide),
             ("if", lambda cond, a, b: a() if cond else b()),
             ("id", lambda a: a()),
             # ("pront", pront("debug!"))
@@ -73,21 +105,7 @@ class CodeGenerator:
             list(self.terminal_nodes.values()),
             3)
 
-        return self.execute_expression(exprs)()
-
-    def execute_expression(self, expr):
-        # Instructions are in a tree, should be able to recursively handle it
-        [action_fn, *args] = list_singleton(expr)
-
-        if len(args) == 0:
-            return action_fn
-        elif len(args) > 0:
-            # Evaluate the arguments
-            argvals = [self.execute_expression(arg) for arg in args]
-
-            # Return a lazy computed value
-            return lambda: action_fn(*argvals)
-        return lambda: 0
+        return Interpreter.execute_expression(exprs)()
 
 
 class CodegenUnitTests(unittest.TestCase):
@@ -103,19 +121,19 @@ class CodegenUnitTests(unittest.TestCase):
         self.assertNotEqual(5, 2 + 2)
 
     def test_simple_expressions_are_evaluated_correctly(self):
-        cg = CodeGenerator()
+        interpreter = Interpreter()
         expr1 = [
             lambda a, b: a() + b(),
             lambda: 2,
             lambda: 3
         ]
-        self.assertEqual(5, cg.execute_expression(expr1)())
+        self.assertEqual(5, interpreter.execute_expression(expr1)())
 
         expr2 = [
             lambda a: a()**2,
             lambda: 5
         ]
-        self.assertEqual(25, cg.execute_expression(expr2)())
+        self.assertEqual(25, interpreter.execute_expression(expr2)())
 
         expr3 = [
             lambda a, b: a() + b(),
@@ -125,11 +143,11 @@ class CodegenUnitTests(unittest.TestCase):
                     lambda: 5
             ]
         ]
-        self.assertEqual(27, cg.execute_expression(expr3)())
+        self.assertEqual(27, interpreter.execute_expression(expr3)())
 
     def test_failing_if_conditions_are_not_executed(self):
         """Checks the lazy evaluation of impure functions passed to conditional functions"""
-        cg = CodeGenerator()
+        interpreter = Interpreter()
 
         def conditional(i, a, b): return (a() if i() != 50 else b())
 
@@ -161,7 +179,7 @@ class CodegenUnitTests(unittest.TestCase):
              ]
         ]
 
-        self.assertEqual(20, cg.execute_expression(expr)())
+        self.assertEqual(20, interpreter.execute_expression(expr)())
         self.assertTrue(state['calledA'])
         self.assertTrue(state['calledCondition'])
         self.assertFalse(state['calledB'])
