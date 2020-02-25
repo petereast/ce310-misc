@@ -18,6 +18,7 @@ class Interpreter:
         This is all going to seem a little strange if you don't understand lazy evaluation.
 
     """
+
     @staticmethod
     def execute_expression(expr):
         # Instructions are in a tree, should be able to recursively handle it
@@ -38,6 +39,16 @@ class CodeGenerator:
     def __init__(self):
         self.define_language()
 
+    @staticmethod
+    def checked_divide(a, b):
+        val_b = b()
+        val_a = a()
+
+        if val_b <= 0:
+            return 0
+        else:
+            return val_a / val_b
+
     def define_language(self):
         """
         Define the set of available isntructions using lambda functions.
@@ -57,36 +68,37 @@ class CodeGenerator:
                 return value()
             return __internal
 
-        def checked_divide(a, b):
-            val_b = b()
-            val_a = a()
 
-            return val_a / val_b if val_b > 0 else 0
 
-        self.terminal_nodes = dict([
-            ("const1", lambda: 1),
-            ("const2", lambda: 2),
-            ("const3", lambda: 3)
-        ])
+        self.terminal_nodes = [
+            ("0", lambda: 0),
+            ("1", lambda: 1),
+            ("2", lambda: 2),
+            ("3", lambda: 3),
+            ("4", lambda: 4),
+            ("5", lambda: 5),
+            ("6", lambda: 6),
+            ("7", lambda: 7),
+            ("8", lambda: 8),
+            ("9", lambda: 9),
+            ("10", lambda: 10)
+        ]
 
-        self.function_nodes = dict([
+        self.function_nodes = [
             ("+", lambda a, b: a() + b()),
             ("-", lambda a, b: a() - b()),
             ("*", lambda a, b: a() * b()),
-            ("/", checked_divide),
+            ("/", CodeGenerator.checked_divide),
             ("if", lambda cond, a, b: a() if cond else b()),
             ("id", lambda a: a()),
-            # ("pront", pront("debug!"))
-        ])
+        ]
 
-    def _choose_random(_, l):
-        return random.choice(l)
 
     def _gen_random_expression(self, function_set, terminal_nodes, max_depth):
         if max_depth == 0:
-            expr = [self._choose_random(terminal_nodes)]
+            expr = [random.choice(terminal_nodes)]
         else:
-            fn = self._choose_random(function_set)
+            name, fn = random.choice(function_set)
 
             args = []
             for i in range(fn.__code__.co_argcount):
@@ -96,16 +108,37 @@ class CodeGenerator:
                         terminal_nodes,
                         max_depth - 1))
 
-            expr = [fn] + args
+            expr = [(name, fn)] + args
+
         return expr
+
+    @staticmethod
+    def _make_executable(expr):
+        [(_, fn), *args] = expr
+
+        if len(args) > 0:
+            return [fn] + [CodeGenerator._make_executable(arg) for arg in args]
+        else:
+            return [fn]
+
+    def _make_humanreadable(expr):
+        [(name, _), *args] = expr
+
+        if len(args) > 0:
+            return [name] + [CodeGenerator._make_humanreadable(arg) for arg in args]
+        else:
+            return [name]
 
     def test(self):
         exprs = self._gen_random_expression(
-            list(self.function_nodes.values()),
-            list(self.terminal_nodes.values()),
-            3)
+            self.function_nodes,
+            self.terminal_nodes,
+            4)
+        result = Interpreter.execute_expression(CodeGenerator._make_executable(exprs))()
 
-        return Interpreter.execute_expression(exprs)()
+        print(CodeGenerator._make_humanreadable(exprs), result)
+        return result
+
 
 
 class CodegenUnitTests(unittest.TestCase):
@@ -144,6 +177,32 @@ class CodegenUnitTests(unittest.TestCase):
             ]
         ]
         self.assertEqual(27, interpreter.execute_expression(expr3)())
+
+    def test_cant_divide_by_zero_and_kill_everything(self):
+        """Checks that we can't kill the program by erroring when dividing by 0"""
+
+        expr = [
+                CodeGenerator.checked_divide,
+                lambda: 10,
+                lambda: 0,
+                ]
+
+        result = Interpreter.execute_expression(expr)()
+
+        self.assertEqual(0, result)
+
+    def test_checked_divide_works(self):
+        """Checks that the program still works when not dividing by 0"""
+
+        expr = [
+                CodeGenerator.checked_divide,
+                lambda: 10,
+                lambda: 2,
+                ]
+
+        result = Interpreter.execute_expression(expr)()
+
+        self.assertEqual(5, result)
 
     def test_failing_if_conditions_are_not_executed(self):
         """Checks the lazy evaluation of impure functions passed to conditional functions"""
