@@ -55,11 +55,11 @@ class CodeGenerator:
 
         Please note that *everything is a function*, even constant values. This comes
         with two main advantages:
-            1. The interpreter becomes much more simple as it is only dealing with one 
+            1. The interpreter becomes much more simple as it is only dealing with one
                type of data
-            2. It allows us to use "lazy evaluation", which means that the macros (as 
+            2. It allows us to use "lazy evaluation", which means that the macros (as
                described in the GE class on the 24th feb) are nothing special, because
-               each functional node is forced to decide if it wants to evaluate each 
+               each functional node is forced to decide if it wants to evaluate each
                subtree or not.
         """
         def pront(string):
@@ -67,8 +67,6 @@ class CodeGenerator:
                 print(string, value())
                 return value()
             return __internal
-
-
 
         self.terminal_nodes = [
             ("0", lambda: 0),
@@ -92,7 +90,6 @@ class CodeGenerator:
             ("if", lambda cond, a, b: a() if cond else b()),
             ("id", lambda a: a()),
         ]
-
 
     def _gen_random_expression(self, function_set, terminal_nodes, max_depth):
         if max_depth == 0:
@@ -125,7 +122,8 @@ class CodeGenerator:
         [(name, _), *args] = expr
 
         if len(args) > 0:
-            return [name] + [CodeGenerator._make_humanreadable(arg) for arg in args]
+            return [name] + \
+                [CodeGenerator._make_humanreadable(arg) for arg in args]
         else:
             return [name]
 
@@ -134,11 +132,11 @@ class CodeGenerator:
             self.function_nodes,
             self.terminal_nodes,
             4)
-        result = Interpreter.execute_expression(CodeGenerator._make_executable(exprs))()
+        result = Interpreter.execute_expression(
+            CodeGenerator._make_executable(exprs))()
 
         print(CodeGenerator._make_humanreadable(exprs), result)
         return result
-
 
 
 class CodegenUnitTests(unittest.TestCase):
@@ -182,10 +180,10 @@ class CodegenUnitTests(unittest.TestCase):
         """Checks that we can't kill the program by erroring when dividing by 0"""
 
         expr = [
-                CodeGenerator.checked_divide,
-                lambda: 10,
-                lambda: 0,
-                ]
+            CodeGenerator.checked_divide,
+            lambda: 10,
+            lambda: 0,
+        ]
 
         result = Interpreter.execute_expression(expr)()
 
@@ -195,10 +193,10 @@ class CodegenUnitTests(unittest.TestCase):
         """Checks that the program still works when not dividing by 0"""
 
         expr = [
-                CodeGenerator.checked_divide,
-                lambda: 10,
-                lambda: 2,
-                ]
+            CodeGenerator.checked_divide,
+            lambda: 10,
+            lambda: 2,
+        ]
 
         result = Interpreter.execute_expression(expr)()
 
