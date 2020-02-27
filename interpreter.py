@@ -26,13 +26,12 @@ class Interpreter:
 
         if len(args) == 0:
             return action_fn
-        elif len(args) > 0:
-            # Evaluate the arguments
+        else:
+            # Recursively evaluate the arguments
             argvals = [Interpreter.execute_expression(arg) for arg in args]
 
-            # Return a lazy computed value
+            # Return a lazy value
             return lambda: action_fn(*argvals)
-        return lambda: 0
 
 
 class CodeGenerator:
@@ -118,6 +117,7 @@ class CodeGenerator:
         else:
             return [fn]
 
+    @staticmethod
     def _make_humanreadable(expr):
         [(name, _), *args] = expr
 
